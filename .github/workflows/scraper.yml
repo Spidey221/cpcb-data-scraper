@@ -1,0 +1,35 @@
+name: Scrape CPCB Data
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests
+      - name: Run the scraper
+        run: python cpcb_scraper.py
+      - name: Commit data files
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          shopt -s nullglob
+          csv_files=(*.csv)
+          if [ ${#csv_files[@]} -eq 0 ]; then
+            echo "No CSV files present (scraper likely produced no data this run). Skipping commit."
+            exit 0
+          fi
+          git add "${csv_files[@]}"
+          git diff --staged --quiet || git commit -m "Update water quality data"
+          git push
